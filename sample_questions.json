@@ -1,0 +1,41 @@
+[
+    {
+        "title": null,
+        "content": null,
+        "questions": [
+            {
+                "question": "The meeting was postponed _____ the manager was absent.",
+                "choice_a": "because",
+                "choice_b": "although",
+                "choice_c": "unless",
+                "choice_d": "despite",
+                "answer": "A",
+                "explanation": "「because」は接続詞で、後に文が続きます。「マネージャーが不在だったため」という理由を表します。"
+            }
+        ]
+    },
+    {
+        "title": "Meeting Notice",
+        "content": "Dear employees,\nWe would like to inform you that the quarterly town hall meeting is scheduled for next Friday. Please make sure to bring your progress reports. Attendance is mandatory for all department heads.",
+        "questions": [
+            {
+                "question": "When is the town hall meeting?",
+                "choice_a": "Tomorrow",
+                "choice_b": "Next Friday",
+                "choice_c": "Next month",
+                "choice_d": "Today",
+                "answer": "B",
+                "explanation": "本文に「scheduled for next Friday」と記載されています。"
+            },
+            {
+                "question": "Who must attend the meeting?",
+                "choice_a": "All employees",
+                "choice_b": "Only managers",
+                "choice_c": "Department heads",
+                "choice_d": "New hires",
+                "answer": "C",
+                "explanation": "本文に「Attendance is mandatory for all department heads.」と記載されています。"
+            }
+        ]
+    }
+]

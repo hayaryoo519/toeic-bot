@@ -1,0 +1,26 @@
+# Pythonキャッシュ
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 仮想環境
+venv/
+.venv/
+env/
+
+# 環境変数 (秘匿情報)
+.env
+
+# データベース (SQLite)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# ngrok 等のツールやログ
+*.log
+error.log
+
+# IDE設定
+.vscode/
+.idea/
