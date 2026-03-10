@@ -1,11 +1,14 @@
-import os
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    LINE_CHANNEL_SECRET: str = os.getenv("LINE_CHANNEL_SECRET", "YOUR_CHANNEL_SECRET")
-    LINE_CHANNEL_ACCESS_TOKEN: str = os.getenv("LINE_CHANNEL_ACCESS_TOKEN", "YOUR_CHANNEL_ACCESS_TOKEN")
+    LINE_CHANNEL_SECRET: str
+    LINE_CHANNEL_ACCESS_TOKEN: str
+    PORT: int = 8000
+    DATABASE_URL: str = "sqlite:///./toeic_bot.db"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"  # 他の環境変数があっても無視するように設定
+    )
 
 settings = Settings()
