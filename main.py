@@ -11,7 +11,8 @@ from linebot.v3.exceptions import InvalidSignatureError
 from linebot.v3.messaging import (
     Configuration, ApiClient, MessagingApi,
     ReplyMessageRequest, TextMessage, PushMessageRequest,
-    FlexMessage, FlexContainer, FlexCarousel, FlexBubble
+    FlexMessage, FlexContainer, FlexCarousel, FlexBubble,
+    QuickReply, QuickReplyItem, MessageAction
 )
 from linebot.v3.webhooks import (
     MessageEvent, TextMessageContent, PostbackEvent, FollowEvent
@@ -168,10 +169,18 @@ def handle_postback(event):
     
     explanation_text = result_text + "【解説】\n" + question.explanation
 
+    quick_reply = QuickReply(
+        items=[
+            QuickReplyItem(action=MessageAction(label="短文 (Part 5)", text="短文")),
+            QuickReplyItem(action=MessageAction(label="長文 (Part 7)", text="長文")),
+            QuickReplyItem(action=MessageAction(label="復習 🔄", text="復習")),
+        ]
+    )
+
     line_bot_api.reply_message_with_http_info(
         ReplyMessageRequest(
             reply_token=event.reply_token,
-            messages=[TextMessage(text=explanation_text)]
+            messages=[TextMessage(text=explanation_text, quick_reply=quick_reply)]
         )
     )
     db.close()
