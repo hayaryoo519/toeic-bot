@@ -353,11 +353,31 @@ def handle_message(event):
         # バックグラウンドで実行
         thread = threading.Thread(target=run_generation_batch, kwargs={"count": count, "part": part_type, "theme": "Random"})
         thread.start()
+    elif user_text == "/":
+        help_text = (
+            "🚀 利用可能なコマンド一覧:\n"
+            "・短文 / 長文: 問題を解く\n"
+            "・復習: 過去のミスを解く\n"
+            "・成績: 今までの記録を見る\n"
+        )
+        if config.settings.ADMIN_USER_ID and line_user_id == config.settings.ADMIN_USER_ID:
+            help_text += (
+                "\n管理者専用:\n"
+                "・/sync: Notionから同期\n"
+                "・/generate [数]: AI問題生成"
+            )
+        
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=help_text)]
+            )
+        )
     else:
         line_bot_api.reply_message_with_http_info(
             ReplyMessageRequest(
                 reply_token=event.reply_token,
-                messages=[TextMessage(text=f"「問題」「短文」「長文」「成績」「復習」のいずれかを送信してください！")]
+                messages=[TextMessage(text="「問題」「短文」「長文」「成績」「復習」のいずれかを送信してください！\n利用可能なコマンドは「/」で確認できます。")]
             )
         )
     db.close()
