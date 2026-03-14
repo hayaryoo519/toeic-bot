@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     LINE_CHANNEL_SECRET: str
     LINE_CHANNEL_ACCESS_TOKEN: str
+    ADMIN_USER_ID: str = None
     PORT: int = 8000
     DATABASE_URL: str = "sqlite:///./toeic_bot.db"
 

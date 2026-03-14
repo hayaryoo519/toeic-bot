@@ -39,6 +39,7 @@ class Question(Base):
     choice_d = Column(String)
     answer = Column(String)
     explanation = Column(String)
+    notion_page_id = Column(String, unique=True, nullable=True, index=True)
     
     passage = relationship("Passage", back_populates="questions")
     answers = relationship("Answer", back_populates="question")
@@ -73,3 +74,21 @@ class Answer(Base):
     delivery = relationship("Delivery", back_populates="answers")
     user = relationship("User", back_populates="answers")
     question = relationship("Question", back_populates="answers")
+
+class AIGenerationLog(Base):
+    __tablename__ = "ai_generation_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    prompt = Column(String)
+    generated_question = Column(String) # JSON or text
+    review_result = Column(String)
+    created_at = Column(DateTime)
+
+class SyncLog(Base):
+    __tablename__ = "sync_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    notion_page_id = Column(String)
+    result = Column(String) # Success / Skip / Error
+    error_message = Column(String, nullable=True)
+    synced_at = Column(DateTime)
