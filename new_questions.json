@@ -1,0 +1,59 @@
+[
+    {
+        "title": null,
+        "content": null,
+        "questions": [
+            {
+                "question": "The new marketing strategy was highly _____ in increasing our company's overall sales.",
+                "choice_a": "effect",
+                "choice_b": "effective",
+                "choice_c": "effectively",
+                "choice_d": "effectiveness",
+                "answer": "B",
+                "explanation": "「was highly _____」の空欄には形容詞が入ります。effective（効果的な）が正解です。"
+            },
+            {
+                "question": "Mr. Chen _____ travel to Tokyo for the upcoming annual conference next month.",
+                "choice_a": "will",
+                "choice_b": "is",
+                "choice_c": "has",
+                "choice_d": "does",
+                "answer": "A",
+                "explanation": "未来の予定（next month）を表すため、助動詞の will が適切です。"
+            },
+            {
+                "question": "Please ensure that all confidential documents are completely _____ before leaving the office.",
+                "choice_a": "shred",
+                "choice_b": "shreds",
+                "choice_c": "shredding",
+                "choice_d": "shredded",
+                "answer": "D",
+                "explanation": "「are completely _____」と受動態になるため、過去分詞形の shredded（シュレッダーにかけられた）が入ります。"
+            }
+        ]
+    },
+    {
+        "title": "Email from HR",
+        "content": "To: All Staff\nFrom: Human Resources\nDate: March 12\nSubject: Office Renovation\n\nStarting next Monday, the 3rd floor will be undergoing renovations to create a more open workspace. During this two-week period, all marketing and design team members currently on the 3rd floor are asked to temporarily relocate to the 5th floor conference rooms. We apologize for any inconvenience this may cause and appreciate your cooperation.",
+        "questions": [
+            {
+                "question": "Why is the 3rd floor being renovated?",
+                "choice_a": "To fix a broken elevator",
+                "choice_b": "To create an open workspace",
+                "choice_c": "To add more conference rooms",
+                "choice_d": "To repair water damage",
+                "answer": "B",
+                "explanation": "本文に「to create a more open workspace」と記載されています。"
+            },
+            {
+                "question": "Where should the marketing team work next week?",
+                "choice_a": "On the 2nd floor",
+                "choice_b": "On the 3rd floor",
+                "choice_c": "On the 4th floor",
+                "choice_d": "On the 5th floor",
+                "answer": "D",
+                "explanation": "本文に「temporarily relocate to the 5th floor conference rooms」と記載されています。"
+            }
+        ]
+    }
+]

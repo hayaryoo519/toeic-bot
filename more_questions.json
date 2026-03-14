@@ -1,0 +1,86 @@
+[
+    {
+        "title": null,
+        "content": null,
+        "questions": [
+            {
+                "question": "The software update will install automatically _____ you choose to schedule it for a later time.",
+                "choice_a": "because",
+                "choice_b": "unless",
+                "choice_c": "during",
+                "choice_d": "despite",
+                "answer": "B",
+                "explanation": "「あなたが後で実行するようにスケジュールしない限り」という意味になるため、unless（～しない限り）が正解です。"
+            },
+            {
+                "question": "Customers who purchase the premium package are _____ for a 20% discount on all future services.",
+                "choice_a": "eligible",
+                "choice_b": "eligibility",
+                "choice_c": "eligibly",
+                "choice_d": "eligible for",
+                "answer": "A",
+                "explanation": "be eligible for ～で「～の資格がある、～の対象となる」という意味になります。空所には形容詞 eligible が入ります。"
+            },
+            {
+                "question": "The committee reached a _____ decision to approve the new budget proposal after hours of discussion.",
+                "choice_a": "unanimous",
+                "choice_b": "unanimously",
+                "choice_c": "unanimity",
+                "choice_d": "unanimousness",
+                "answer": "A",
+                "explanation": "名詞 decision を修飾する形容詞が必要です。unanimous（満場一致の）が正解です。"
+            },
+            {
+                "question": "All employees are required to attend the safety training session _____ in the main auditorium tomorrow.",
+                "choice_a": "hold",
+                "choice_b": "held",
+                "choice_c": "holding",
+                "choice_d": "will hold",
+                "answer": "B",
+                "explanation": "「明日開催される安全研修」という意味にするため、過去分詞形の held が名詞 safety training session を後ろから修飾します。"
+            },
+            {
+                "question": "The CEO's speech was so _____ that the audience gave him a standing ovation.",
+                "choice_a": "inspire",
+                "choice_b": "inspired",
+                "choice_c": "inspiring",
+                "choice_d": "inspiration",
+                "answer": "C",
+                "explanation": "スピーチが「感動を与えるものだった」という意味になるため、現在分詞から派生した形容詞 inspiring（鼓舞するような、感動的な）が正解です。"
+            }
+        ]
+    },
+    {
+        "title": "Welcome to Peak Fitness Center",
+        "content": "Dear Member,\n\nWelcome to Peak Fitness Center! We are thrilled to have you join our community. As a new member, you have full access to our state-of-the-art gym equipment, swimming pool, and group exercise classes. \n\nYour membership card is enclosed with this letter. Please present it at the front desk each time you visit. If you lose your card, a replacement fee of $15 will apply.\n\nWe encourage you to schedule a complimentary fitness assessment with one of our certified personal trainers within your first month. To book your session, please log in to your online account or call the reception desk at 555-0198.\n\nSincerely,\nThe Peak Fitness Team",
+        "questions": [
+            {
+                "question": "What is included with the welcome letter?",
+                "choice_a": "A group class schedule",
+                "choice_b": "A membership card",
+                "choice_c": "A discount coupon",
+                "choice_d": "A fitness assessment form",
+                "answer": "B",
+                "explanation": "第2段落に「Your membership card is enclosed with this letter.（会員カードが同封されています）」と記載されています。"
+            },
+            {
+                "question": "How much does it cost to get a new membership card if the original is lost?",
+                "choice_a": "$5",
+                "choice_b": "$10",
+                "choice_c": "$15",
+                "choice_d": "$20",
+                "answer": "C",
+                "explanation": "第2段落に「If you lose your card, a replacement fee of $15 will apply.（カードを紛失した場合、再発行手数料15ドルがかかります）」と記載されています。"
+            },
+            {
+                "question": "How can members schedule their free fitness assessment?",
+                "choice_a": "By mailing a form",
+                "choice_b": "By replying to the email",
+                "choice_c": "By speaking to a trainer directly",
+                "choice_d": "By making a phone call",
+                "answer": "D",
+                "explanation": "第3段落に「To book your session, please log in to your online account or call the reception desk...（オンラインアカウントにログインするか、受付に電話してください）」と記載されています。"
+            }
+        ]
+    }
+]
