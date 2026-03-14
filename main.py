@@ -3,6 +3,7 @@ import random
 import traceback
 from datetime import datetime, date, timedelta, timezone
 from urllib.parse import parse_qsl
+import threading
 
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Depends
 from linebot.v3 import WebhookHandler
@@ -21,6 +22,9 @@ from apscheduler.triggers.cron import CronTrigger
 
 import models, schemas, database, config
 from database import engine
+from sync_notion import sync_from_notion
+from backup_db import backup_database
+from ai_generator import run_generation_batch
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -36,6 +40,8 @@ scheduler = BackgroundScheduler()
 
 JST = timezone(timedelta(hours=9), 'JST')
 
+
+
 def now_jst():
     return datetime.now(JST)
 
@@ -49,6 +55,20 @@ def start_scheduler():
         send_daily_question,
         trigger=CronTrigger(hour=7, minute=0, timezone='Asia/Tokyo'),
         id="daily_push",
+        replace_existing=True
+    )
+    # Notion同期ジョブ (毎日深夜3時)
+    scheduler.add_job(
+        sync_from_notion,
+        trigger=CronTrigger(hour=3, minute=0, timezone='Asia/Tokyo'),
+        id="notion_sync",
+        replace_existing=True
+    )
+    # DBバックアップジョブ (毎週日曜 深夜2時)
+    scheduler.add_job(
+        backup_database,
+        trigger=CronTrigger(day_of_week='sun', hour=2, minute=0, timezone='Asia/Tokyo'),
+        id="db_backup",
         replace_existing=True
     )
 
@@ -168,15 +188,18 @@ def handle_message(event):
         db.commit()
 
     user_text = event.message.text
-    if user_text in ["問題", "短文", "長文"]:
+    if user_text in ["問題", "短文", "長文", "復習"]:
         try:
             req_type = None
+            review_only = False
             if user_text == "短文":
                 req_type = models.ContentType.question
             elif user_text == "長文":
                 req_type = models.ContentType.passage
+            elif user_text == "復習":
+                review_only = True
                 
-            send_question_to_user(user, db, requested_type=req_type)
+            send_question_to_user(user, db, requested_type=req_type, review_only=review_only, reply_token=event.reply_token)
         except Exception as e:
             line_bot_api.reply_message_with_http_info(
                 ReplyMessageRequest(
@@ -187,11 +210,60 @@ def handle_message(event):
             traceback.print_exc()
     elif user_text == "成績":
         reply_stats(user, event.reply_token, db)
+    elif user_text == "/sync":
+        if config.settings.ADMIN_USER_ID and line_user_id != config.settings.ADMIN_USER_ID:
+            # 管理者以外には応答しない、または制限メッセージを出す（今回は何もしない）
+            db.close()
+            return
+        
+        try:
+            count = sync_from_notion()
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=f"🔄 同期が完了しました！\n新たに {count} 件の問題を追加しました。")]
+                )
+            )
+        except Exception as e:
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[TextMessage(text=f"❌ 同期エラー: {str(e)}")]
+                )
+            )
+    elif user_text.startswith("/generate"):
+        if config.settings.ADMIN_USER_ID and line_user_id != config.settings.ADMIN_USER_ID:
+            db.close()
+            return
+        
+        # 引数の解析 (例: /generate 5 Part7)
+        parts = user_text.split()
+        count = 3
+        part_type = "Random"
+        
+        if len(parts) > 1 and parts[1].isdigit():
+            count = int(parts[1])
+            if count > 10: count = 10 # 最大10件制限
+        
+        if len(parts) > 2:
+            suggested_part = parts[2].capitalize()
+            if suggested_part in ["Part5", "Part7"]:
+                part_type = suggested_part
+        
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text=f"🤖 AI問題生成を開始します...\n・個数: {count}件\n・パート: {part_type}\n・テーマ: ランダム\n\n完了するとNotionにDraftとして保存されます。")]
+            )
+        )
+        # バックグラウンドで実行
+        thread = threading.Thread(target=run_generation_batch, kwargs={"count": count, "part": part_type, "theme": "Random"})
+        thread.start()
     else:
         line_bot_api.reply_message_with_http_info(
             ReplyMessageRequest(
                 reply_token=event.reply_token,
-                messages=[TextMessage(text=f"「問題」「短文」「長文」「成績」のいずれかを送信してください！")]
+                messages=[TextMessage(text=f"「問題」「短文」「長文」「成績」「復習」のいずれかを送信してください！")]
             )
         )
     db.close()
@@ -201,38 +273,151 @@ def reply_stats(user: models.User, reply_token: str, db):
     
     total = len(answers)
     if total == 0:
-        msg = "まだ回答データがありません。"
-    else:
-        corrects = sum(1 for a in answers if a.is_correct)
-        rate = int((corrects / total) * 100)
-        
-        recent_marks = ["○" if a.is_correct else "×" for a in answers[:5]]
-        recent_str = " ".join(recent_marks)
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=reply_token,
+                messages=[TextMessage(text="まだ回答データがありません。")]
+            )
+        )
+        return
 
-        # Streak calculation
-        unique_dates = sorted(list(set([a.answered_at.astimezone(JST).date() for a in answers])), reverse=True)
-        streak = 0
-        today = date_jst()
-        yesterday = today - timedelta(days=1)
-        
-        if unique_dates:
-            first_date = unique_dates[0]
-            if first_date == today or first_date == yesterday:
-                streak = 1
-                curr_date = first_date
-                for d in unique_dates[1:]:
-                    if d == curr_date - timedelta(days=1):
-                        streak += 1
-                        curr_date = d
-                    else:
-                        break
+    corrects = sum(1 for a in answers if a.is_correct)
+    rate = int((corrects / total) * 100)
+    
+    # Part 5 vs Part 7 separation
+    part5_total = 0
+    part5_correct = 0
+    part7_total = 0
+    part7_correct = 0
 
-        msg = f"回答数: {total}\n正答率: {rate}%\n\n連続学習: {streak}日🔥\n\n最近の結果\n{recent_str}"
+    ans_q = db.query(models.Answer, models.Question).join(
+        models.Question, models.Answer.question_id == models.Question.id
+    ).filter(models.Answer.user_id == user.id).all()
+
+    for a, q in ans_q:
+        if q.passage_id is None:
+            part5_total += 1
+            if a.is_correct:
+                part5_correct += 1
+        else:
+            part7_total += 1
+            if a.is_correct:
+                part7_correct += 1
+                
+    part5_rate = int((part5_correct / part5_total) * 100) if part5_total > 0 else 0
+    part7_rate = int((part7_correct / part7_total) * 100) if part7_total > 0 else 0
+    
+    recent_marks = ["🟢" if a.is_correct else "🔴" for a in answers[:5]]
+    recent_str = " ".join(recent_marks)
+
+    # Streak calculation
+    unique_dates = sorted(list(set([a.answered_at.astimezone(JST).date() for a in answers])), reverse=True)
+    streak = 0
+    today = date_jst()
+    yesterday = today - timedelta(days=1)
+    
+    if unique_dates:
+        first_date = unique_dates[0]
+        if first_date == today or first_date == yesterday:
+            streak = 1
+            curr_date = first_date
+            for d in unique_dates[1:]:
+                if d == curr_date - timedelta(days=1):
+                    streak += 1
+                    curr_date = d
+                else:
+                    break
+
+    # Build Flex Message
+    bubble = {
+        "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "📊 学習スコア",
+                    "weight": "bold",
+                    "color": "#FFFFFF",
+                    "size": "xl"
+                }
+            ],
+            "backgroundColor": "#1DB446"
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {"type": "text", "text": "全体正答率", "size": "sm", "color": "#555555", "flex": 1},
+                        {"type": "text", "text": f"{rate}% ({corrects}/{total})", "size": "sm", "color": "#111111", "align": "end", "weight": "bold", "flex": 1}
+                    ]
+                },
+                {"type": "separator", "margin": "md"},
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "margin": "md",
+                    "contents": [
+                        {"type": "text", "text": "単文(Part 5)", "size": "sm", "color": "#555555", "flex": 1},
+                        {"type": "text", "text": f"{part5_rate}% ({part5_correct}/{part5_total})", "size": "sm", "color": "#111111", "align": "end", "weight": "bold", "flex": 1}
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "margin": "sm",
+                    "contents": [
+                        {"type": "text", "text": "長文(Part 7)", "size": "sm", "color": "#555555", "flex": 1},
+                        {"type": "text", "text": f"{part7_rate}% ({part7_correct}/{part7_total})", "size": "sm", "color": "#111111", "align": "end", "weight": "bold", "flex": 1}
+                    ]
+                },
+                {"type": "separator", "margin": "md"},
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "margin": "md",
+                    "contents": [
+                        {"type": "text", "text": "🔥連続学習", "size": "sm", "color": "#555555", "flex": 1},
+                        {"type": "text", "text": f"{streak} 日", "size": "sm", "color": "#FF4500", "align": "end", "weight": "bold", "flex": 1}
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "md",
+                    "contents": [
+                        {"type": "text", "text": "📝最近の5問", "size": "sm", "color": "#555555"},
+                        {"type": "text", "text": recent_str, "size": "lg", "align": "center", "margin": "sm"}
+                    ]
+                },
+                {"type": "separator", "margin": "md"},
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#FF4500",
+                    "margin": "md",
+                    "action": {
+                        "type": "message",
+                        "label": "✍️間違えた問題を復習",
+                        "text": "復習"
+                    }
+                }
+            ]
+        }
+    }
+
+    container = FlexBubble.from_dict(bubble)
+    flex_msg = FlexMessage(alt_text="成績確認", contents=container)
 
     line_bot_api.reply_message_with_http_info(
         ReplyMessageRequest(
             reply_token=reply_token,
-            messages=[TextMessage(text=msg)]
+            messages=[flex_msg]
         )
     )
 
@@ -247,15 +432,24 @@ def send_daily_question():
             traceback.print_exc()
     db.close()
 
-def send_question_to_user(user: models.User, db, requested_type: models.ContentType = None):
-    content_type, content_id = select_question_content(user.id, db, requested_type)
+def send_question_to_user(user: models.User, db, requested_type: models.ContentType = None, review_only: bool = False, reply_token: str = None):
+    content_type, content_id = select_question_content(user.id, db, requested_type, review_only)
     
     if not content_type:
-        push_req = PushMessageRequest(
-            to=user.line_user_id,
-            messages=[TextMessage(text="追加の学習問題がありません。追加をお待ち下さい！")]
-        )
-        line_bot_api.push_message_with_http_info(push_req)
+        msg_text = "🎉 現在、復習可能な（今日まだ出題されていない）間違えた問題はありません！素晴らしいです！" if review_only else "追加の学習問題がありません。追加をお待ち下さい！"
+        if reply_token:
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=msg_text)]
+                )
+            )
+        else:
+            push_req = PushMessageRequest(
+                to=user.line_user_id,
+                messages=[TextMessage(text=msg_text)]
+            )
+            line_bot_api.push_message_with_http_info(push_req)
         return
 
     today = date_jst()
@@ -267,6 +461,14 @@ def send_question_to_user(user: models.User, db, requested_type: models.ContentT
     ).first()
     
     if existing_delivery:
+        if reply_token:
+            msg_text = "本日の問題はすべて出題済みです！\n明日また挑戦するか、サーバーに問題を追加してください。"
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=reply_token,
+                    messages=[TextMessage(text=msg_text)]
+                )
+            )
         return
 
     delivery = models.Delivery(
@@ -282,24 +484,34 @@ def send_question_to_user(user: models.User, db, requested_type: models.ContentT
     if content_type == models.ContentType.question:
         question = db.query(models.Question).get(content_id)
         flex_msg = build_question_flex_message_obj(question, delivery.id)
+        messages_to_send = [flex_msg]
     else:
         passage = db.query(models.Passage).get(content_id)
         questions = db.query(models.Question).filter(models.Question.passage_id == content_id).all()
-        flex_msg = build_passage_carousel_obj(passage, questions, delivery.id)
+        messages_to_send = build_passage_messages(passage, questions, delivery.id)
 
-    push_req = PushMessageRequest(
-        to=user.line_user_id,
-        messages=[flex_msg]
-    )
-    line_bot_api.push_message_with_http_info(push_req)
+    if reply_token:
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=reply_token,
+                messages=messages_to_send
+            )
+        )
+    else:
+        push_req = PushMessageRequest(
+            to=user.line_user_id,
+            messages=messages_to_send
+        )
+        line_bot_api.push_message_with_http_info(push_req)
 
-def select_question_content(user_id: int, db, requested_type: models.ContentType = None):
+def select_question_content(user_id: int, db, requested_type: models.ContentType = None, review_only: bool = False):
     candidates = []
     
-    should_review = random.random() < 0.3
+    should_review = True if review_only else random.random() < 0.3
     if should_review:
+        today = date_jst()
         three_days_ago = now_jst() - timedelta(days=3)
-        recent_answers = db.query(models.Answer).filter(models.Answer.user_id == user_id).order_by(models.Answer.answered_at.desc()).limit(200).all()
+        recent_answers = db.query(models.Answer).filter(models.Answer.user_id == user_id).order_by(models.Answer.answered_at.desc()).limit(500).all()
         q_latest_correct = {}
         for a in recent_answers:
             if a.question_id not in q_latest_correct:
@@ -318,17 +530,31 @@ def select_question_content(user_id: int, db, requested_type: models.ContentType
                     
                 c_id = q.passage_id if q.passage_id else q.id
                 
-                recent_delivery = db.query(models.Delivery).filter(
-                    models.Delivery.user_id == user_id,
-                    models.Delivery.content_type == c_type,
-                    models.Delivery.content_id == c_id,
-                    models.Delivery.delivered_at >= three_days_ago
-                ).first()
+                if review_only:
+                    recent_delivery = db.query(models.Delivery).filter(
+                        models.Delivery.user_id == user_id,
+                        models.Delivery.content_type == c_type,
+                        models.Delivery.content_id == c_id,
+                        models.Delivery.delivered_date == today
+                    ).first()
+                else:
+                    recent_delivery = db.query(models.Delivery).filter(
+                        models.Delivery.user_id == user_id,
+                        models.Delivery.content_type == c_type,
+                        models.Delivery.content_id == c_id,
+                        models.Delivery.delivered_at >= three_days_ago
+                    ).first()
+
                 if not recent_delivery:
                     review_candidates.append((c_type, c_id))
             
             if review_candidates:
                 candidates = list(set(review_candidates))
+
+    if review_only:
+        if candidates:
+            return random.choice(candidates)
+        return None, None
 
     if not candidates:
         delivered = db.query(models.Delivery).filter(models.Delivery.user_id == user_id).all()
@@ -395,15 +621,29 @@ def build_question_bubble(question: models.Question, delivery_id: int, header_te
     }
 
 def build_choice_button(label_char, text, delivery_id, question_id):
+    full_text = f"{label_char}. {text}"
     return {
-        "type": "button",
-        "style": "secondary",
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#E8ECEF",
+        "cornerRadius": "md",
+        "paddingAll": "12px",
         "action": {
             "type": "postback",
-            "label": f"{label_char}. {text}"[:20],
+            "label": full_text[:40],
             "data": f"delivery_id={delivery_id}&question_id={question_id}&choice={label_char}",
             "displayText": f"{label_char} を選択しました。"
-        }
+        },
+        "contents": [
+            {
+                "type": "text",
+                "text": full_text,
+                "wrap": True,
+                "color": "#111111",
+                "align": "center",
+                "size": "sm"
+            }
+        ]
     }
 
 def build_question_flex_message_obj(question: models.Question, delivery_id: int):
@@ -411,8 +651,8 @@ def build_question_flex_message_obj(question: models.Question, delivery_id: int)
     container = FlexBubble.from_dict(bubble)
     return FlexMessage(alt_text="本日の問題が届きました", contents=container)
 
-def build_passage_carousel_obj(passage: models.Passage, questions: list, delivery_id: int):
-    bubbles = []
+def build_passage_messages(passage: models.Passage, questions: list, delivery_id: int):
+    messages = []
     
     passage_bubble = {
         "type": "bubble",
@@ -441,13 +681,12 @@ def build_passage_carousel_obj(passage: models.Passage, questions: list, deliver
             ]
         }
     }
-    bubbles.append(passage_bubble)
+    messages.append(FlexMessage(alt_text="長文問題が届きました", contents=FlexBubble.from_dict(passage_bubble)))
     
     for i, q in enumerate(questions):
-        if i >= 11:
+        if i >= 4: # LINEの1回の送信メッセージ上限(5件)に合わせて、本文1+設問4までに制限
             break
         q_bubble = build_question_bubble(q, delivery_id, f"設問 {i+1}")
-        bubbles.append(q_bubble)
+        messages.append(FlexMessage(alt_text=f"設問 {i+1}", contents=FlexBubble.from_dict(q_bubble)))
         
-    container = FlexCarousel.from_dict({"type": "carousel", "contents": bubbles})
-    return FlexMessage(alt_text="長文問題が届きました", contents=container)
+    return messages
