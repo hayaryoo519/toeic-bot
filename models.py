@@ -14,6 +14,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     line_user_id = Column(String, unique=True, index=True)
     created_at = Column(DateTime)
+    current_combo = Column(Integer, default=0)
+    max_combo = Column(Integer, default=0)
     
     answers = relationship("Answer", back_populates="user")
     deliveries = relationship("Delivery", back_populates="user")

@@ -49,6 +49,85 @@ def now_jst():
 def date_jst():
     return datetime.now(JST).date()
 
+def create_explanation_flex(question, is_correct, user_choice, current_combo):
+    title = "🟢 正解！" if is_correct else "🔴 不正解..."
+    bg_color = "#1DB446" if is_correct else "#E63946"
+    
+    combo_text = ""
+    if is_correct and current_combo >= 2:
+        if current_combo >= 10:
+            combo_text = f"🔥 {current_combo}連勝!! 神がかってます！"
+        elif current_combo >= 5:
+            combo_text = f"🔥 {current_combo}連勝! 素晴らしい勢い！"
+        else:
+            combo_text = f"✨ {current_combo}連続正解中！"
+
+    bubble = {
+        "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": title,
+                    "weight": "bold",
+                    "color": "#FFFFFF",
+                    "size": "lg"
+                }
+            ],
+            "backgroundColor": bg_color
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "md",
+                    "contents": [
+                        {"type": "text", "text": "正解", "size": "xs", "color": "#aaaaaa"},
+                        {"type": "text", "text": f"{question.answer}", "size": "xl", "weight": "bold", "color": "#111111"}
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "md",
+                    "contents": [
+                        {"type": "text", "text": "あなたの回答", "size": "xs", "color": "#aaaaaa"},
+                        {"type": "text", "text": f"{user_choice}", "size": "md", "color": "#555555"}
+                    ]
+                },
+                {"type": "separator", "margin": "lg"},
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "lg",
+                    "contents": [
+                        {"type": "text", "text": "解説", "size": "xs", "color": "#aaaaaa"},
+                        {"type": "text", "text": question.explanation, "wrap": True, "size": "sm", "color": "#333333", "margin": "sm"}
+                    ]
+                }
+            ]
+        }
+    }
+    
+    if combo_text:
+        bubble["body"]["contents"].insert(0, {
+            "type": "text",
+            "text": combo_text,
+            "weight": "bold",
+            "size": "md",
+            "color": "#FF4500",
+            "margin": "sm",
+            "align": "center"
+        })
+
+    container = FlexBubble.from_dict(bubble)
+    return FlexMessage(alt_text="回答解説", contents=container)
+
 @app.on_event("startup")
 def start_scheduler():
     scheduler.start()
@@ -152,6 +231,14 @@ def handle_postback(event):
 
     is_correct = (choice == question.answer)
     
+    # コンボ更新
+    if is_correct:
+        user.current_combo += 1
+        if user.current_combo > user.max_combo:
+            user.max_combo = user.current_combo
+    else:
+        user.current_combo = 0
+    
     answer = models.Answer(
         delivery_id=delivery_id,
         user_id=user.id,
@@ -162,12 +249,7 @@ def handle_postback(event):
     db.add(answer)
     db.commit()
 
-    if is_correct:
-         result_text = "🟢 正解です！\n\n"
-    else:
-         result_text = f"🔴 不正解です...\n正解は {question.answer} です。\n\n"
-    
-    explanation_text = result_text + "【解説】\n" + question.explanation
+    flex_msg = create_explanation_flex(question, is_correct, choice, user.current_combo)
 
     quick_reply = QuickReply(
         items=[
@@ -176,11 +258,14 @@ def handle_postback(event):
             QuickReplyItem(action=MessageAction(label="復習 🔄", text="復習")),
         ]
     )
+    
+    # QuickReplyをFlexMessageに付与
+    flex_msg.quick_reply = quick_reply
 
     line_bot_api.reply_message_with_http_info(
         ReplyMessageRequest(
             reply_token=event.reply_token,
-            messages=[TextMessage(text=explanation_text, quick_reply=quick_reply)]
+            messages=[flex_msg]
         )
     )
     db.close()
