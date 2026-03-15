@@ -35,13 +35,21 @@ def create_rich_menu_image(filename="rich_menu.png"):
     ]
     
     try:
-        font_main = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 65)
-        font_sub = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 35)
-        font_icon = ImageFont.truetype("C:/Windows/Fonts/seguiemj.ttf", 80) # Windows Emoji font
+        # サーバー上のローカルフォントを最優先で使用
+        font_path = "NotoSansJP-Regular.otf"
+        font_main = ImageFont.truetype(font_path, 65)
+        font_sub = ImageFont.truetype(font_path, 35)
+        font_icon = ImageFont.truetype(font_path, 80) # Use the same font for basic symbols if emoji font missing
     except:
-        font_main = ImageFont.load_default()
-        font_sub = ImageFont.load_default()
-        font_icon = ImageFont.load_default()
+        try:
+            # Windows 環境用フォールバック
+            font_main = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 65)
+            font_sub = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 35)
+            font_icon = ImageFont.truetype("C:/Windows/Fonts/seguiemj.ttf", 80)
+        except:
+            font_main = ImageFont.load_default()
+            font_sub = ImageFont.load_default()
+            font_icon = ImageFont.load_default()
 
     for x, y, w, h, color, txt, sub, icon in buttons:
         # ボタン影
