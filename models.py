@@ -41,6 +41,7 @@ class Question(Base):
     choice_d = Column(String)
     answer = Column(String)
     explanation = Column(String)
+    level = Column(Integer, nullable=True) # 600, 730, 860, 990
     notion_page_id = Column(String, unique=True, nullable=True, index=True)
     
     passage = relationship("Passage", back_populates="questions")

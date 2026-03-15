@@ -55,6 +55,8 @@ def sync_from_notion():
             choice_d = notion_provider.get_property_text(page, "Choice D")
             answer = notion_provider.get_property_text(page, "Answer")
             explanation = notion_provider.get_property_text(page, "Explanation")
+            level_str = notion_provider.get_property_text(page, "Level")
+            level = int(level_str) if level_str and level_str.isdigit() else None
 
             if not question_text or not answer:
                 msg = f"Skipping page {page_id} due to missing required fields."
@@ -83,6 +85,7 @@ def sync_from_notion():
                 choice_d=choice_d,
                 answer=answer,
                 explanation=explanation,
+                level=level,
                 notion_page_id=page_id
             )
             db.add(new_q)

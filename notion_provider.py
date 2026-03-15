@@ -92,6 +92,10 @@ class NotionProvider:
             "Status": {"select": {"name": status}}
         }
         
+        # Level プロパティの追加
+        if question_data.get("level"):
+            properties["Level"] = {"select": {"name": str(question_data["level"])}}
+        
         if question_data.get("passage"):
             properties["Passage"] = {"rich_text": [{"text": {"content": question_data["passage"]}}]}
 
