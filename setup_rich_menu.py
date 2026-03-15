@@ -37,13 +37,16 @@ def create_rich_menu_image(filename="rich_menu.png"):
     try:
         # サーバー上のローカルフォントを最優先で使用
         font_path = "NotoSansJP-Regular.otf"
-        emoji_font_path = "NotoEmoji-Regular.ttf"
+        # 10MB越えのフルセット絵文字フォントを使用
+        emoji_font_path = "NotoColorEmoji.ttf"
         font_main = ImageFont.truetype(font_path, 65)
         font_sub = ImageFont.truetype(font_path, 35)
-        # 絵文字専用フォントを使用
+        
         try:
+            # Color Emoji font (Note: PIL might not render color but it should have the glyphs)
             font_icon = ImageFont.truetype(emoji_font_path, 80)
         except:
+            # Fallback to general font if emoji font fails
             font_icon = ImageFont.truetype(font_path, 80)
     except:
         try:
