@@ -11,18 +11,55 @@ class NotionProvider:
 
     def get_approved_questions(self):
         """
-        Status == 'Approved' のレコードを取得する
+        Status == 'Approved' のレコードを全件取得する
         """
-        response = self.notion.databases.query(
-            database_id=self.database_id,
-            filter={
+        import httpx
+        url = f"https://api.notion.com/v1/databases/{self.database_id}/query"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('NOTION_TOKEN')}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "filter": {
                 "property": "Status",
                 "select": {
                     "equals": "Approved"
                 }
             }
-        )
-        return response.get("results", [])
+        }
+        with httpx.Client() as client:
+            r = client.post(url, headers=headers, json=payload)
+            if r.status_code != 200:
+                print(f"Error querying Notion: {r.status_code} - {r.text}")
+                return []
+            return r.json().get("results", [])
+
+    def get_draft_questions(self):
+        """
+        Status == 'Draft' のレコードを取得する
+        """
+        import httpx
+        url = f"https://api.notion.com/v1/databases/{self.database_id}/query"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('NOTION_TOKEN')}",
+            "Notion-Version": "2022-06-28",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "filter": {
+                "property": "Status",
+                "select": {
+                    "equals": "Draft"
+                }
+            }
+        }
+        with httpx.Client() as client:
+            r = client.post(url, headers=headers, json=payload)
+            if r.status_code != 200:
+                print(f"Error querying Notion: {r.status_code} - {r.text}")
+                return []
+            return r.json().get("results", [])
 
     def update_status(self, page_id, status="Synced"):
         """
