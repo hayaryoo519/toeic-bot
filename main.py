@@ -769,7 +769,7 @@ def build_question_bubble(question: models.Question, delivery_id: int, header_te
     }
 
 def build_choice_button(label_char, text, delivery_id, question_id):
-    full_text = f"{label_char}. {text}"
+    full_text = f"({label_char}) {text}"
     return {
         "type": "box",
         "layout": "vertical",
