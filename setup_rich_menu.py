@@ -37,9 +37,14 @@ def create_rich_menu_image(filename="rich_menu.png"):
     try:
         # サーバー上のローカルフォントを最優先で使用
         font_path = "NotoSansJP-Regular.otf"
+        emoji_font_path = "NotoEmoji-Regular.ttf"
         font_main = ImageFont.truetype(font_path, 65)
         font_sub = ImageFont.truetype(font_path, 35)
-        font_icon = ImageFont.truetype(font_path, 80) # Use the same font for basic symbols if emoji font missing
+        # 絵文字専用フォントを使用
+        try:
+            font_icon = ImageFont.truetype(emoji_font_path, 80)
+        except:
+            font_icon = ImageFont.truetype(font_path, 80)
     except:
         try:
             # Windows 環境用フォールバック
