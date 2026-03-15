@@ -26,52 +26,45 @@ def create_rich_menu_image(filename="rich_menu.png"):
     def draw_button(draw, x, y, w, h, radius, color):
         draw.rounded_rectangle([x, y, x+w, y+h], radius=radius, fill=color)
 
-    # ボタンの配置と色 (x, y, w, h, color, text, subtext, icon)
+    # ボタンの配置と色 (x, y, w, h, color, text, subtext, icon_file)
     buttons = [
-        (40, 40, 540, 345, (230, 245, 230), "短文問題", "Part 5", "📄"),
-        (620, 40, 540, 345, (230, 235, 250), "長文問題", "Part 7", "📚"),
-        (40, 425, 540, 345, (250, 240, 230), "復習問題", "Review", "🔄"),
-        (620, 425, 540, 345, (240, 240, 240), "成績確認", "Stats", "📊")
+        (40, 40, 540, 345, (230, 245, 230), "短文問題", "Part 5", "icon_short.png"),
+        (620, 40, 540, 345, (230, 235, 250), "長文問題", "Part 7", "icon_long.png"),
+        (40, 425, 540, 345, (250, 240, 230), "復習問題", "Review", "icon_review.png"),
+        (620, 425, 540, 345, (240, 240, 240), "成績確認", "Stats", "icon_stats.png")
     ]
     
     try:
         # サーバー上のローカルフォントを最優先で使用
         font_path = "NotoSansJP-Regular.otf"
-        # 10MB越えのフルセット絵文字フォントを使用
-        emoji_font_path = "NotoColorEmoji.ttf"
         font_main = ImageFont.truetype(font_path, 65)
         font_sub = ImageFont.truetype(font_path, 35)
-        
-        try:
-            # Color Emoji font (Note: PIL might not render color but it should have the glyphs)
-            font_icon = ImageFont.truetype(emoji_font_path, 80)
-        except:
-            # Fallback to general font if emoji font fails
-            font_icon = ImageFont.truetype(font_path, 80)
     except:
         try:
             # Windows 環境用フォールバック
             font_main = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 65)
             font_sub = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 35)
-            font_icon = ImageFont.truetype("C:/Windows/Fonts/seguiemj.ttf", 80)
         except:
             font_main = ImageFont.load_default()
             font_sub = ImageFont.load_default()
-            font_icon = ImageFont.load_default()
 
-    for x, y, w, h, color, txt, sub, icon in buttons:
+    for x, y, w, h, color, txt, sub, icon_file in buttons:
         # ボタン影
         d.rounded_rectangle([x+4, y+4, x+w+4, y+h+4], radius=20, fill=(210, 210, 210))
         # ボタン本体
         draw_button(d, x, y, w, h, 20, color)
         
-        # テキスト描画 (中央揃え)
-        # アイコン
+        # アイコン画像描画 (画像生成したファイルを使用)
         try:
-            ibox = d.textbbox((0, 0), icon, font=font_icon)
-            iw = ibox[2] - ibox[0]; ih = ibox[3] - ibox[1]
-            d.text((x + w/2 - iw/2, y + h/2 - 80), icon, fill=(50, 50, 50), font=font_icon)
-        except: pass
+            icon_img = Image.open(icon_file).convert("RGBA")
+            # サイズ調整
+            icon_img.thumbnail((160, 160), Image.Resampling.LANCZOS)
+            iw, ih = icon_img.size
+            # 背景色に合わせて白抜きを透明にするなどの処理が必要な場合があるが、
+            # とりあえずアルファチャンネルがあればそのままペースト
+            img.paste(icon_img, (int(x + w/2 - iw/2), int(y + h/2 - 120)), icon_img if icon_img.mode == 'RGBA' else None)
+        except Exception as e:
+            print(f"Warning: Could not load icon {icon_file}: {e}")
 
         # メインテキスト
         try:
@@ -88,7 +81,7 @@ def create_rich_menu_image(filename="rich_menu.png"):
         except: pass
         
     img.save(filename)
-    print(f"[{filename}] generated with premium design.")
+    print(f"[{filename}] generated with image-based premium design.")
 
 def get_existing_menus():
     res = requests.get("https://api.line.me/v2/bot/richmenu/list", headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
