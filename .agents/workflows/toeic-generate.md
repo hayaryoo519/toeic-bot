@@ -5,11 +5,10 @@ AI（ChatGPT）を使用して、新しいTOEIC問題を生成し、Notionデー
 
 ### 1. 生成コマンドの実行
 // turbo
-1. 下記コマンドをSSHターミナルで実行して生成を開始します。
-```bash
-cd ~/apps/toeic-bot
+1. 下記コマンドをPowerShellで実行して生成を開始します。
+```powershell
 # 例: Part5の問題を3問生成する場合
-./venv/bin/python ai_generator.py --count 3 --part Part5 --theme "Business"
+.\venv\Scripts\python ai_generator.py --count 3 --part Part5 --theme "Business"
 ```
 
 ### 2. 生成オプションの解説
