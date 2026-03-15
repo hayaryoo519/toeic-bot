@@ -18,42 +18,61 @@ HEADERS = {
 
 def create_rich_menu_image(filename="rich_menu.png"):
     width, height = 1200, 810
-    img = Image.new('RGB', (width, height), color=(250, 250, 250))
+    # 背景を少しグレーがかった白にして高級感を出す
+    img = Image.new('RGB', (width, height), color=(245, 247, 249))
     d = ImageDraw.Draw(img)
     
-    # 枠線を引く
-    d.line([(600, 0), (600, 810)], fill=(200, 200, 200), width=2)
-    d.line([(0, 405), (1200, 405)], fill=(200, 200, 200), width=2)
-    
-    # テキストを描画
-    try:
-        font = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 60)
-    except:
-        try:
-            font = ImageFont.truetype("C:/Windows/Fonts/msgothic.ttc", 60)
-        except:
-            font = ImageFont.load_default()
+    # 角丸のボタン背景を描画する関数
+    def draw_button(draw, x, y, w, h, radius, color):
+        draw.rounded_rectangle([x, y, x+w, y+h], radius=radius, fill=color)
 
-    # (x, y, text, color)
-    labels = [
-        (300, 202, "📄 短文問題\n(Part 5)", (0, 100, 0)),
-        (900, 202, "📚 長文問題\n(Part 7)", (0, 50, 150)),
-        (300, 607, "🔄 復習問題\n(Review)", (150, 50, 0)),
-        (900, 607, "📊 成績確認\n(Stats)", (100, 100, 100))
+    # ボタンの配置と色 (x, y, w, h, color, text, subtext, icon)
+    buttons = [
+        (40, 40, 540, 345, (230, 245, 230), "短文問題", "Part 5", "📄"),
+        (620, 40, 540, 345, (230, 235, 250), "長文問題", "Part 7", "📚"),
+        (40, 425, 540, 345, (250, 240, 230), "復習問題", "Review", "🔄"),
+        (620, 425, 540, 345, (240, 240, 240), "成績確認", "Stats", "📊")
     ]
     
-    for x, y, text, color in labels:
-        try:
-            bbox = d.textbbox((0, 0), text, font=font, align="center")
-            tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        except AttributeError:
-            # 古いPillow対応
-            tw, th = d.textsize(text, font=font)
+    try:
+        font_main = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 65)
+        font_sub = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", 35)
+        font_icon = ImageFont.truetype("C:/Windows/Fonts/seguiemj.ttf", 80) # Windows Emoji font
+    except:
+        font_main = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
+        font_icon = ImageFont.load_default()
+
+    for x, y, w, h, color, txt, sub, icon in buttons:
+        # ボタン影
+        d.rounded_rectangle([x+4, y+4, x+w+4, y+h+4], radius=20, fill=(210, 210, 210))
+        # ボタン本体
+        draw_button(d, x, y, w, h, 20, color)
         
-        d.text((x - tw/2, y - th/2), text, fill=color, font=font, align="center")
+        # テキスト描画 (中央揃え)
+        # アイコン
+        try:
+            ibox = d.textbbox((0, 0), icon, font=font_icon)
+            iw = ibox[2] - ibox[0]; ih = ibox[3] - ibox[1]
+            d.text((x + w/2 - iw/2, y + h/2 - 80), icon, fill=(50, 50, 50), font=font_icon)
+        except: pass
+
+        # メインテキスト
+        try:
+            mbox = d.textbbox((0, 0), txt, font=font_main)
+            mw = mbox[2] - mbox[0]; mh = mbox[3] - mbox[1]
+            d.text((x + w/2 - mw/2, y + h/2 + 20), txt, fill=(30, 30, 30), font=font_main)
+        except: pass
+
+        # サブテキスト
+        try:
+            sbox = d.textbbox((0, 0), sub, font=font_sub)
+            sw = sbox[2] - sbox[0]; sh = sbox[3] - sbox[1]
+            d.text((x + w/2 - sw/2, y + h/2 + 100), sub, fill=(100, 100, 100), font=font_sub)
+        except: pass
         
     img.save(filename)
-    print(f"[{filename}] generated.")
+    print(f"[{filename}] generated with premium design.")
 
 def get_existing_menus():
     res = requests.get("https://api.line.me/v2/bot/richmenu/list", headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})

@@ -253,8 +253,8 @@ def handle_postback(event):
 
     quick_reply = QuickReply(
         items=[
-            QuickReplyItem(action=MessageAction(label="短文 (Part 5)", text="短文")),
-            QuickReplyItem(action=MessageAction(label="長文 (Part 7)", text="長文")),
+            QuickReplyItem(action=MessageAction(label="短文問題 📄", text="短文")),
+            QuickReplyItem(action=MessageAction(label="長文問題 📚", text="長文")),
             QuickReplyItem(action=MessageAction(label="復習 🔄", text="復習")),
         ]
     )
@@ -282,18 +282,40 @@ def handle_message(event):
         db.commit()
 
     user_text = event.message.text
-    if user_text in ["問題", "短文", "長文", "復習"]:
+    if user_text == "短文":
+        # レベル選択のクイックリプライを表示
+        quick_reply = QuickReply(
+            items=[
+                QuickReplyItem(action=MessageAction(label="600点レベル", text="600点レベル")),
+                QuickReplyItem(action=MessageAction(label="730点レベル", text="730点レベル")),
+                QuickReplyItem(action=MessageAction(label="860点レベル", text="860点レベル")),
+                QuickReplyItem(action=MessageAction(label="990点レベル", text="990点レベル")),
+            ]
+        )
+        line_bot_api.reply_message_with_http_info(
+            ReplyMessageRequest(
+                reply_token=event.reply_token,
+                messages=[TextMessage(text="目標スコアを選んでください 🎯", quick_reply=quick_reply)]
+            )
+        )
+    elif user_text in ["長文", "復習"] or "点レベル" in user_text:
         try:
             req_type = None
             review_only = False
-            if user_text == "短文":
+            target_level = None
+            
+            if "点レベル" in user_text:
                 req_type = models.ContentType.question
+                if "600" in user_text: target_level = 600
+                elif "730" in user_text: target_level = 730
+                elif "860" in user_text: target_level = 860
+                elif "990" in user_text: target_level = 990
             elif user_text == "長文":
                 req_type = models.ContentType.passage
             elif user_text == "復習":
                 review_only = True
                 
-            send_question_to_user(user, db, requested_type=req_type, review_only=review_only, reply_token=event.reply_token)
+            send_question_to_user(user, db, requested_type=req_type, review_only=review_only, target_level=target_level, reply_token=event.reply_token)
         except Exception as e:
             line_bot_api.reply_message_with_http_info(
                 ReplyMessageRequest(
@@ -526,8 +548,8 @@ def send_daily_question():
             traceback.print_exc()
     db.close()
 
-def send_question_to_user(user: models.User, db, requested_type: models.ContentType = None, review_only: bool = False, reply_token: str = None):
-    content_type, content_id = select_question_content(user.id, db, requested_type, review_only)
+def send_question_to_user(user: models.User, db, requested_type: models.ContentType = None, review_only: bool = False, target_level: int = None, reply_token: str = None):
+    content_type, content_id = select_question_content(user.id, db, requested_type, review_only, target_level)
     
     if not content_type:
         msg_text = "🎉 現在、復習可能な（今日まだ出題されていない）間違えた問題はありません！素晴らしいです！" if review_only else "追加の学習問題がありません。追加をお待ち下さい！"
@@ -598,7 +620,7 @@ def send_question_to_user(user: models.User, db, requested_type: models.ContentT
         )
         line_bot_api.push_message_with_http_info(push_req)
 
-def select_question_content(user_id: int, db, requested_type: models.ContentType = None, review_only: bool = False):
+def select_question_content(user_id: int, db, requested_type: models.ContentType = None, review_only: bool = False, target_level: int = None):
     candidates = []
     
     should_review = True if review_only else random.random() < 0.3
@@ -659,7 +681,10 @@ def select_question_content(user_id: int, db, requested_type: models.ContentType
         
         all_content = []
         if requested_type is None or requested_type == models.ContentType.question:
-            all_content.extend([(models.ContentType.question, q.id) for q in all_q])
+            query = db.query(models.Question).filter(models.Question.passage_id == None)
+            if target_level:
+                query = query.filter(models.Question.level == target_level)
+            all_content.extend([(models.ContentType.question, q.id) for q in query.all()])
         if requested_type is None or requested_type == models.ContentType.passage:
             all_content.extend([(models.ContentType.passage, p.id) for p in all_p])
         
@@ -675,6 +700,28 @@ def select_question_content(user_id: int, db, requested_type: models.ContentType
     return None, None
 
 def build_question_bubble(question: models.Question, delivery_id: int, header_text="TOEIC問題"):
+    level_badge = []
+    if question.level:
+        level_badge.append({
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#FF4500",
+            "cornerRadius": "sm",
+            "paddingStart": "8px",
+            "paddingEnd": "8px",
+            "paddingTop": "2px",
+            "paddingBottom": "2px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"Score {question.level}",
+                    "color": "#FFFFFF",
+                    "size": "xxs",
+                    "weight": "bold"
+                }
+            ]
+        })
+
     return {
         "type": "bubble",
         "body": {
@@ -682,11 +729,18 @@ def build_question_bubble(question: models.Question, delivery_id: int, header_te
             "layout": "vertical",
             "contents": [
                 {
-                    "type": "text",
-                    "text": header_text,
-                    "weight": "bold",
-                    "size": "md",
-                    "color": "#1DB446"
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": header_text,
+                            "weight": "bold",
+                            "size": "sm",
+                            "color": "#1DB446",
+                            "flex": 1
+                        }
+                    ] + level_badge
                 },
                 {
                     "type": "separator",
